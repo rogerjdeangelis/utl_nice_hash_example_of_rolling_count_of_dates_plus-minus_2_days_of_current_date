@@ -4,6 +4,8 @@ Nice hash example of rolling count of dates plus-minus 2 days of current date. K
 
     Same results WPS/SAS
 
+    see Paul Dorfmans reply on end of post
+    
     github
     https://tinyurl.com/ybn2qjms
     https://github.com/rogerjdeangelis/utl_nice_hash_example_of_rolling_count_of_dates_plus-minus_2_days_of_current_date
@@ -156,4 +158,50 @@ Nice hash example of rolling count of dates plus-minus 2 days of current date. K
     run;
     run;quit;
     ');
+    
+        Paul Dorfman <sashole@bellsouth.net>
+    9:29 PM (13 hours ago)
+    to SAS-L, me
+    Roger,
+
+    Simple and elegant indeed. Note that the "keynumerate" operation loop can be coded more concisely (and without using a return code variable) as follows:
+
+    if h.find() = 0 then do until (h.find_next() ne 0);
+      if ... then ... count ... ;
+    end;
+
+    That works in both 9.2/9.3 and 9.4. Or, if you're running 9.4, it is even simpler since you can ditch the FIND+FIND_NEXT combo and just use the DO_OVER method:
+
+    do while (h.do_over() = 0) ;
+      if ... then ... count ... ;
+    end ;
+
+    Your solution will work with data neither sorted nor grouped by ID. That means, however, that the hash table will end up with as many items as there are input records. But if it is intrinsically grouped (as in your sample file), it can be re-coded to r
+    . The I/O will remain the same (2 passes through the input file).
+
+    data want (drop=date) ;
+      if _n_=1 then do;
+        dcl hash H (multidata:'y') ;
+         h.definekey  ("date") ;
+         h.definedone () ;
+        dcl hiter ih ("h") ;
+      end ;
+      do _n_ = 1 by 1 until (last.id) ;
+        set have ;
+        by ID notsorted ;
+        h.add() ;
+      end ;
+      do _n_ = 1 to _n_ ;
+        set have (rename=(date=_date)) ;
+        do count = 0 by 0 while (ih.next() = 0) ;
+          if _date - 2 <= date <= _date + 2 then count + 1 ;
+        end ;
+        output ;
+      end ;
+      h.clear() ;
+    run;
+
+    Best regards
+
+
 
